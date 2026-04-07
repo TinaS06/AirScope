@@ -1,78 +1,140 @@
-import { useEffect } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, useMap, CircleMarker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.heat';
 
-function HeatmapLayer() {
+function normalizePm25(pm25) {
+  if (pm25 <= 0) return 0.2;
+  if (pm25 < 10) return 0.5;
+  if (pm25 < 25) return 0.7;
+  if (pm25 < 50) return 0.85;
+  return 1.0;
+}
+
+function expandPoint(lat, lng, intensity) {
+  return [
+    [lat, lng, intensity],
+    [lat + 0.002, lng + 0.002, intensity * 0.95],
+    [lat - 0.002, lng - 0.002, intensity * 0.9],
+    [lat + 0.003, lng - 0.002, intensity * 0.88],
+    [lat - 0.002, lng + 0.003, intensity * 0.85],
+  ];
+}
+
+function HeatmapLayer({ readings }) {
   const map = useMap();
 
   useEffect(() => {
-    const heatData = [
-      // CENTAR (mnogu zagadeno)
-      [41.9981, 21.4254, 1.0],
-      [41.9990, 21.4260, 0.95],
-      [41.9975, 21.4240, 0.9],
-      [41.9965, 21.4270, 0.85],
-      [41.9988, 21.4235, 0.88],
+    if (!readings || readings.length === 0) return;
 
-      // KARPOS
-      [42.0018, 21.3918, 0.7],
-      [42.0025, 21.3925, 0.68],
-      [42.0005, 21.3905, 0.65],
-      [42.0030, 21.3935, 0.6],
-
-      // AERODROM (premnogu zagadeno)
-      [41.9880, 21.4480, 1.0],
-      [41.9875, 21.4490, 0.95],
-      [41.9890, 21.4470, 0.92],
-      [41.9865, 21.4500, 0.9],
-      [41.9885, 21.4465, 0.93],
-
-      // GJORCE PETROV
-      [42.0066, 21.3536, 0.6],
-      [42.0075, 21.3545, 0.58],
-      [42.0055, 21.3525, 0.55],
-
-      // CAIR
-      [42.0124, 21.4391, 0.8],
-      [42.0130, 21.4400, 0.78],
-      [42.0115, 21.4380, 0.75],
-
-      // KERAMIDNICA
-      [41.9960, 21.4633, 0.7],
-      [41.9970, 21.4645, 0.68],
-      [41.9950, 21.4620, 0.65],
-    ];
+    const heatData = readings.flatMap((item) => {
+      const intensity = normalizePm25(item.pm25Value);
+      return expandPoint(item.latitude, item.longitude, intensity);
+    });
 
     const heatLayer = L.heatLayer(heatData, {
-      radius: 45,
-      blur: 35,
+      radius: 80,
+      blur: 55,
       maxZoom: 17,
+      minOpacity: 0.6,
     }).addTo(map);
 
     return () => {
       map.removeLayer(heatLayer);
     };
-  }, [map]);
+  }, [map, readings]);
 
   return null;
 }
 
 function MapPage() {
-  return (
-    <MapContainer
-      center={[41.9981, 21.4254]}
-      zoom={12}
-      style={{ height: '100vh', width: '100%' }}
-    >
-      <TileLayer
-        attribution="&copy; OpenStreetMap contributors"
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+  const [readings, setReadings] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
-      <HeatmapLayer />
-    </MapContainer>
+  useEffect(() => {
+    fetch('http://localhost:8080/api/air-quality/valid')
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch air quality data: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log('Backend valid data:', data);
+        setReadings(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Frontend fetch error:', err);
+        setError(String(err));
+        setLoading(false);
+      });
+  }, []);
+
+  return (
+    <div style={{ height: '100vh', width: '100%', position: 'relative' }}>
+      <div
+        style={{
+          position: 'absolute',
+          top: '10px',
+          left: '60px',
+          zIndex: 2000,
+          background: 'white',
+          padding: '10px 12px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+          fontSize: '14px',
+          maxWidth: '360px',
+        }}
+      >
+        <div><strong>Loading:</strong> {loading ? 'Yes' : 'No'}</div>
+        <div><strong>Error:</strong> {error || 'None'}</div>
+        <div><strong>Readings count:</strong> {readings.length}</div>
+        <div>
+          <strong>Locations:</strong>{' '}
+          {readings.length > 0
+            ? readings.map((r) => r.locationName).join(', ')
+            : 'No data yet'}
+        </div>
+      </div>
+
+      <MapContainer
+        center={[41.9981, 21.4254]}
+        zoom={12}
+        style={{ height: '100%', width: '100%' }}
+      >
+        <TileLayer
+          attribution="&copy; OpenStreetMap contributors"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        <HeatmapLayer readings={readings} />
+
+        {readings.map((item) => (
+          <CircleMarker
+            key={item.id}
+            center={[item.latitude, item.longitude]}
+            radius={12}
+            pathOptions={{
+              color: 'red',
+              fillColor: 'red',
+              fillOpacity: 1,
+              weight: 2,
+            }}
+          >
+            <Popup>
+              <strong>{item.locationName}</strong>
+              <br />
+              PM2.5: {item.pm25Value}
+              <br />
+              Measured at: {item.measuredAt}
+            </Popup>
+          </CircleMarker>
+        ))}
+      </MapContainer>
+    </div>
   );
 }
 
