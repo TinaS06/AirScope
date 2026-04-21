@@ -3,6 +3,8 @@ package com.airscope.backend.controller;
 import com.airscope.backend.model.AirQualityReading;
 import com.airscope.backend.repository.AirQualityReadingRepository;
 import com.airscope.backend.service.OpenAQService;
+
+import org.springframework.cglib.core.Local;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -39,6 +41,7 @@ public class AirQualityController {
                 41.9981,
                 21.4254,
                 50.0,
+                LocalDateTime.now(),
                 LocalDateTime.now(),
                 true,
                 "OK"

@@ -23,6 +23,7 @@ public class AirQualityReading {
     private double longitude;
     private double pm25Value;
     private LocalDateTime measuredAt;
+    private LocalDateTime fetchedAt;
 
     private boolean valid;
     private String validationNote;

@@ -8,3 +8,4 @@ import java.util.List;
 public interface AirQualityReadingRepository extends JpaRepository<AirQualityReading, Long> {
     List<AirQualityReading> findByValidTrue();
 }
+

@@ -1,5 +1,7 @@
 package com.airscope.backend.service;
 
+import com.airscope.backend.client.MLClient;
+import com.airscope.backend.dto.MLAnalysisResponse;
 import com.airscope.backend.model.AirQualityReading;
 import com.airscope.backend.repository.AirQualityReadingRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,6 +18,7 @@ import java.util.*;
 public class OpenAQService {
 
     private final AirQualityReadingRepository repository;
+    private final MLClient mlClient;
 
     @Value("${openaq.api.key}")
     private String apiKey;
@@ -31,8 +34,9 @@ public class OpenAQService {
             "Lisice"
     );
 
-    public OpenAQService(AirQualityReadingRepository repository) {
+    public OpenAQService(AirQualityReadingRepository repository, MLClient mlClient) {
         this.repository = repository;
+        this.mlClient = mlClient;
     }
 
     public List<AirQualityReading> fetchAndSaveLatestPm25() {
@@ -55,11 +59,11 @@ public class OpenAQService {
                 new ParameterizedTypeReference<Map<String, Object>>() {}
         );
 
-        List<AirQualityReading> savedReadings = new ArrayList<>();
+        List<AirQualityReading> readings = new ArrayList<>();
 
         if (locationsResponse.getBody() == null || locationsResponse.getBody().get("results") == null) {
             System.out.println(">>> No results from OpenAQ locations endpoint");
-            return savedReadings;
+            return readings;
         }
 
         @SuppressWarnings("unchecked")
@@ -176,18 +180,13 @@ public class OpenAQService {
                             longitude,
                             pm25Value,
                             measuredAt,
+                            LocalDateTime.now(),
                             valid,
                             validationNote
                     );
 
-                    savedReadings.add(repository.save(airQualityReading));
+                    readings.add(airQualityReading);
                     savedLocationKeys.add(matchedLocation.toLowerCase());
-
-                    System.out.println(">>> Saved reading for " + matchedLocation
-                            + ": " + pm25Value + " µg/m³"
-                            + " | valid=" + valid
-                            + " | note=" + validationNote);
-
                     break;
                 }
 
@@ -195,6 +194,31 @@ public class OpenAQService {
                 System.out.println(">>> Error fetching latest for location " + locationName + ": " + e.getMessage());
             }
         }
+
+        if (!readings.isEmpty()) {
+            List<Double> pm25Values = readings.stream()
+                    .map(AirQualityReading::getPm25Value)
+                    .toList();
+
+            List<MLAnalysisResponse> mlResults = mlClient.analyzeReadings(pm25Values);
+
+            for (int i = 0; i < readings.size(); i++) {
+                AirQualityReading reading = readings.get(i);
+                MLAnalysisResponse mlResult = mlResults.get(i);
+
+                if (!mlResult.isValid()) {
+                    reading.setValid(false);
+
+                    if ("OK".equals(reading.getValidationNote())) {
+                        reading.setValidationNote(mlResult.getStatus());
+                    } else {
+                        reading.setValidationNote(reading.getValidationNote() + ", " + mlResult.getStatus());
+                    }
+                }
+            }
+        }
+
+        List<AirQualityReading> savedReadings = repository.saveAll(readings);
 
         System.out.println(">>> Total readings saved: " + savedReadings.size());
         return savedReadings;
