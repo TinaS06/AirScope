@@ -32,11 +32,32 @@ function formatSourceLabel(sourceType) {
   return sourceType === 'community' ? 'Community sensor' : 'Official station';
 }
 
+function isRecentReading(measuredAt) {
+  if (!measuredAt) return false;
+
+  const measuredDate = new Date(measuredAt);
+
+  if (Number.isNaN(measuredDate.getTime())) return false;
+
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  return measuredDate > twentyFourHoursAgo;
+}
+
 function getMarkerStyle(item, isMostPolluted, zoom) {
   const isCommunity = item.sourceType === 'community';
+  const isOutdated = !isRecentReading(item.measuredAt);
 
-  const fillColor = isCommunity ? '#2563eb' : '#60a5fa';
-  const borderColor = isCommunity ? '#1e3a8a' : '#ffffff';
+  const fillColor = isOutdated
+    ? '#9ca3af'
+    : isCommunity
+      ? '#2563eb'
+      : '#60a5fa';
+
+  const borderColor = isOutdated
+    ? '#6b7280'
+    : isCommunity
+      ? '#1e3a8a'
+      : '#ffffff';
 
   let radius = isCommunity ? 5 : 8;
 
@@ -55,8 +76,8 @@ function getMarkerStyle(item, isMostPolluted, zoom) {
     pathOptions: {
       color: borderColor,
       fillColor,
-      fillOpacity: 0.78,
-      opacity: 1,
+      fillOpacity: isOutdated ? 0.45 : 0.78,
+      opacity: isOutdated ? 0.75 : 1,
       weight: isMostPolluted ? 3 : 2,
     },
   };
@@ -92,11 +113,13 @@ function HeatmapLayer({ readings }) {
         blur = 18;
       }
 
-      const heatData = readings.map((item) => [
-        item.latitude,
-        item.longitude,
-        normalizePm25(item.pm25Value, maxPm25),
-      ]);
+      const heatData = readings
+        .filter((item) => isRecentReading(item.measuredAt))
+        .map((item) => [
+          item.latitude,
+          item.longitude,
+          normalizePm25(item.pm25Value, maxPm25),
+        ]);
 
       if (heatLayer) {
         map.removeLayer(heatLayer);
@@ -137,7 +160,10 @@ function ZoomAwareStationCircles({ readings, setSelectedStation, mostPolluted })
   return (
     <>
       {readings.map((item) => {
-        const isMostPolluted = mostPolluted && item.id === mostPolluted.id;
+        const isOutdated = !isRecentReading(item.measuredAt);
+        const isMostPolluted =
+          !isOutdated && mostPolluted && item.id === mostPolluted.id;
+
         const markerStyle = getMarkerStyle(item, isMostPolluted, zoom);
 
         return (
@@ -159,6 +185,12 @@ function ZoomAwareStationCircles({ readings, setSelectedStation, mostPolluted })
                 Measured at: {item.measuredAt}
                 <br />
                 Source: {formatSourceLabel(item.sourceType)}
+                {isOutdated && (
+                  <>
+                    <br />
+                    Status: No recent update
+                  </>
+                )}
               </div>
             </Tooltip>
           </CircleMarker>
@@ -328,7 +360,9 @@ function FilterPanel({
 function DetailsPanel({ selectedStation, setSelectedStation, mostPolluted }) {
   if (!selectedStation) return null;
 
-  const isMostPolluted = mostPolluted && selectedStation.id === mostPolluted.id;
+  const isOutdated = !isRecentReading(selectedStation.measuredAt);
+  const isMostPolluted =
+    !isOutdated && mostPolluted && selectedStation.id === mostPolluted.id;
 
   return (
     <div
@@ -350,7 +384,7 @@ function DetailsPanel({ selectedStation, setSelectedStation, mostPolluted }) {
           color: 'white',
           padding: '18px 22px',
           fontSize: '20px',
-          fontWeight: 800,
+          fontWeight: 550,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -379,6 +413,13 @@ function DetailsPanel({ selectedStation, setSelectedStation, mostPolluted }) {
         <div><strong>Source:</strong> {formatSourceLabel(selectedStation.sourceType)}</div>
         <div><strong>Latitude:</strong> {selectedStation.latitude}</div>
         <div><strong>Longitude:</strong> {selectedStation.longitude}</div>
+
+        {isOutdated && (
+          <div style={{ marginTop: '10px', color: '#6b7280', fontWeight: 800 }}>
+            No recent update for this location
+          </div>
+        )}
+
         {isMostPolluted && (
           <div style={{ marginTop: '10px', color: '#b91c1c', fontWeight: 800 }}>
             Most polluted area right now
@@ -399,10 +440,8 @@ function MapPage() {
   const [showCommunity, setShowCommunity] = useState(true);
   const [showNoRecentUpdates, setShowNoRecentUpdates] = useState(false);
 
-  const now = useMemo(() => new Date(), []);
-
   useEffect(() => {
-    fetch('http://localhost:8080/api/air-quality/valid')
+    fetch('http://localhost:8080/api/air-quality')
       .then((response) => {
         if (!response.ok) {
           throw new Error(`Failed to fetch air quality data: ${response.status}`);
@@ -448,23 +487,10 @@ function MapPage() {
     return Array.from(latestMap.values());
   }, [readings]);
 
-  const mostPolluted = useMemo(() => {
-    if (latestReadingsPerStation.length === 0) return null;
-
-    return latestReadingsPerStation.reduce((max, item) =>
-      item.pm25Value > max.pm25Value ? item : max
-    );
-  }, [latestReadingsPerStation]);
-
   const filteredReadings = useMemo(() => {
     return latestReadingsPerStation.filter((item) => {
       const isCommunity = item.sourceType === 'community';
-      const measuredAt = item.measuredAt ? new Date(item.measuredAt) : null;
-
-      const hasRecentUpdate =
-        measuredAt instanceof Date &&
-        !Number.isNaN(measuredAt.getTime()) &&
-        measuredAt > new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const hasRecentUpdate = isRecentReading(item.measuredAt);
 
       const matchesSource =
         (showOfficial && !isCommunity) || (showCommunity && isCommunity);
@@ -473,19 +499,31 @@ function MapPage() {
 
       return matchesSource && matchesRecency;
     });
-  }, [latestReadingsPerStation, showOfficial, showCommunity, showNoRecentUpdates, now]);
+  }, [latestReadingsPerStation, showOfficial, showCommunity, showNoRecentUpdates]);
+
+  const currentReadings = useMemo(() => {
+    return filteredReadings.filter((item) => isRecentReading(item.measuredAt));
+  }, [filteredReadings]);
+
+  const mostPolluted = useMemo(() => {
+    if (currentReadings.length === 0) return null;
+
+    return currentReadings.reduce((max, item) =>
+      item.pm25Value > max.pm25Value ? item : max
+    );
+  }, [currentReadings]);
 
   const averagePm25 =
-    filteredReadings.length > 0
+    currentReadings.length > 0
       ? (
-          filteredReadings.reduce((sum, item) => sum + item.pm25Value, 0) /
-          filteredReadings.length
+          currentReadings.reduce((sum, item) => sum + item.pm25Value, 0) /
+          currentReadings.length
         ).toFixed(1)
       : '0.0';
 
   const latestTimestamp =
-    filteredReadings.length > 0
-      ? filteredReadings.reduce((latest, item) =>
+    currentReadings.length > 0
+      ? currentReadings.reduce((latest, item) =>
           new Date(item.measuredAt) > new Date(latest.measuredAt) ? item : latest
         ).measuredAt
       : 'No data';
