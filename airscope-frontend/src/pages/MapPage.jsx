@@ -5,6 +5,7 @@ import {
   useMap,
   CircleMarker,
   Tooltip,
+  useMapEvents,
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -27,11 +28,45 @@ function getHeatGradient() {
   };
 }
 
+function formatSourceLabel(sourceType) {
+  return sourceType === 'community' ? 'Community sensor' : 'Official station';
+}
+
+function getMarkerStyle(item, isMostPolluted, zoom) {
+  const isCommunity = item.sourceType === 'community';
+
+  const fillColor = isCommunity ? '#2563eb' : '#60a5fa';
+  const borderColor = isCommunity ? '#1e3a8a' : '#ffffff';
+
+  let radius = isCommunity ? 5 : 8;
+
+  if (zoom <= 7) {
+    radius = isCommunity ? 4 : 5;
+  } else if (zoom <= 9) {
+    radius = isCommunity ? 4 : 6;
+  } else if (zoom <= 11) {
+    radius = isCommunity ? 5 : 7;
+  } else if (zoom >= 14) {
+    radius = isCommunity ? 6 : 9;
+  }
+
+  return {
+    radius,
+    pathOptions: {
+      color: borderColor,
+      fillColor,
+      fillOpacity: 0.78,
+      opacity: 1,
+      weight: isMostPolluted ? 3 : 2,
+    },
+  };
+}
+
 function HeatmapLayer({ readings }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!readings || readings.length === 0) return;
+    if (!readings || readings.length === 0) return undefined;
 
     let heatLayer;
 
@@ -90,32 +125,32 @@ function HeatmapLayer({ readings }) {
   return null;
 }
 
-function StationCircles({ readings, setSelectedStation, mostPolluted }) {
+function ZoomAwareStationCircles({ readings, setSelectedStation, mostPolluted }) {
+  const [zoom, setZoom] = useState(12);
+
+  useMapEvents({
+    zoomend(event) {
+      setZoom(event.target.getZoom());
+    },
+  });
+
   return (
     <>
       {readings.map((item) => {
-        const isCommunity = item.sourceType === 'community';
         const isMostPolluted = mostPolluted && item.id === mostPolluted.id;
-
-        const color = isCommunity ? '#1d4ed8' : '#60a5fa';
-        const radius = isCommunity ? 5 : 8;
+        const markerStyle = getMarkerStyle(item, isMostPolluted, zoom);
 
         return (
           <CircleMarker
             key={item.id ?? `${item.locationName}-${item.latitude}-${item.longitude}`}
             center={[item.latitude, item.longitude]}
-            radius={radius}
-            pathOptions={{
-              color,
-              fillColor: color,
-              fillOpacity: 0.9,
-              weight: isMostPolluted ? 3 : 2,
-            }}
+            radius={markerStyle.radius}
+            pathOptions={markerStyle.pathOptions}
             eventHandlers={{
               click: () => setSelectedStation(item),
             }}
           >
-            <Tooltip direction="top" offset={[0, -4]} opacity={1}>
+            <Tooltip direction="top" offset={[0, -6]} opacity={1}>
               <div>
                 <strong>{item.locationName}</strong>
                 <br />
@@ -123,7 +158,7 @@ function StationCircles({ readings, setSelectedStation, mostPolluted }) {
                 <br />
                 Measured at: {item.measuredAt}
                 <br />
-                Source: {isCommunity ? 'Community sensor' : 'Official station'}
+                Source: {formatSourceLabel(item.sourceType)}
               </div>
             </Tooltip>
           </CircleMarker>
@@ -142,26 +177,33 @@ function TopBar({ stationCount, averagePm25, mostPolluted, latestTimestamp }) {
         left: 0,
         right: 0,
         zIndex: 2000,
-        height: '78px',
+        minHeight: '78px',
         background: 'rgba(255,255,255,0.96)',
         borderBottom: '1px solid #e5e7eb',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        gap: '20px',
         padding: '0 22px',
         boxSizing: 'border-box',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-        <div style={{ fontSize: '32px', fontWeight: 800, color: '#2563eb' }}>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ fontSize: '32px', fontWeight: 700, color: '#2563eb' }}>
           AirScope
-        </div>
-        <div style={{ fontSize: '16px', color: '#374151', fontWeight: 600 }}>
-          Explore the data
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '22px', color: '#374151', fontSize: '14px' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '22px',
+          color: '#374151',
+          fontSize: '14px',
+          justifyContent: 'flex-end',
+        }}
+      >
         <div><strong>Stations:</strong> {stationCount}</div>
         <div><strong>Average PM2.5:</strong> {averagePm25} µg/m³</div>
         <div>
@@ -202,7 +244,7 @@ function FilterPanel({
           color: 'white',
           padding: '18px 22px',
           fontSize: '20px',
-          fontWeight: 800,
+          fontWeight: 550,
         }}
       >
         Filters
@@ -211,7 +253,15 @@ function FilterPanel({
       <div style={{ padding: '22px', fontSize: '16px', color: '#1f2937' }}>
         <div style={{ fontWeight: 700, marginBottom: '18px' }}>Choose location type</div>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px', cursor: 'pointer' }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            marginBottom: '18px',
+            cursor: 'pointer',
+          }}
+        >
           <input
             type="checkbox"
             checked={showOfficial}
@@ -229,7 +279,15 @@ function FilterPanel({
           Official station locations
         </label>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px', cursor: 'pointer' }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            marginBottom: '18px',
+            cursor: 'pointer',
+          }}
+        >
           <input
             type="checkbox"
             checked={showCommunity}
@@ -247,7 +305,14 @@ function FilterPanel({
           Community sensor locations
         </label>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer' }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            cursor: 'pointer',
+          }}
+        >
           <input
             type="checkbox"
             checked={showNoRecentUpdates}
@@ -264,7 +329,6 @@ function DetailsPanel({ selectedStation, setSelectedStation, mostPolluted }) {
   if (!selectedStation) return null;
 
   const isMostPolluted = mostPolluted && selectedStation.id === mostPolluted.id;
-  const isCommunity = selectedStation.sourceType === 'community';
 
   return (
     <div
@@ -312,7 +376,7 @@ function DetailsPanel({ selectedStation, setSelectedStation, mostPolluted }) {
         <div><strong>Location:</strong> {selectedStation.locationName}</div>
         <div><strong>PM2.5:</strong> {selectedStation.pm25Value} µg/m³</div>
         <div><strong>Measured at:</strong> {selectedStation.measuredAt}</div>
-        <div><strong>Source:</strong> {isCommunity ? 'Community sensor' : 'Official station'}</div>
+        <div><strong>Source:</strong> {formatSourceLabel(selectedStation.sourceType)}</div>
         <div><strong>Latitude:</strong> {selectedStation.latitude}</div>
         <div><strong>Longitude:</strong> {selectedStation.longitude}</div>
         {isMostPolluted && (
@@ -361,15 +425,39 @@ function MapPage() {
       });
   }, []);
 
-  const mostPolluted = useMemo(() => {
-    if (readings.length === 0) return null;
-    return readings.reduce((max, item) =>
-      item.pm25Value > max.pm25Value ? item : max
-    );
+  const latestReadingsPerStation = useMemo(() => {
+    const latestMap = new Map();
+
+    readings.forEach((item) => {
+      const key = item.locationName;
+      const current = latestMap.get(key);
+
+      if (!current) {
+        latestMap.set(key, item);
+        return;
+      }
+
+      const currentDate = new Date(current.measuredAt);
+      const itemDate = new Date(item.measuredAt);
+
+      if (itemDate > currentDate) {
+        latestMap.set(key, item);
+      }
+    });
+
+    return Array.from(latestMap.values());
   }, [readings]);
 
+  const mostPolluted = useMemo(() => {
+    if (latestReadingsPerStation.length === 0) return null;
+
+    return latestReadingsPerStation.reduce((max, item) =>
+      item.pm25Value > max.pm25Value ? item : max
+    );
+  }, [latestReadingsPerStation]);
+
   const filteredReadings = useMemo(() => {
-    return readings.filter((item) => {
+    return latestReadingsPerStation.filter((item) => {
       const isCommunity = item.sourceType === 'community';
       const measuredAt = item.measuredAt ? new Date(item.measuredAt) : null;
 
@@ -385,7 +473,7 @@ function MapPage() {
 
       return matchesSource && matchesRecency;
     });
-  }, [readings, showOfficial, showCommunity, showNoRecentUpdates, now]);
+  }, [latestReadingsPerStation, showOfficial, showCommunity, showNoRecentUpdates, now]);
 
   const averagePm25 =
     filteredReadings.length > 0
@@ -474,7 +562,7 @@ function MapPage() {
 
         <HeatmapLayer readings={filteredReadings} />
 
-        <StationCircles
+        <ZoomAwareStationCircles
           readings={filteredReadings}
           setSelectedStation={setSelectedStation}
           mostPolluted={mostPolluted}
