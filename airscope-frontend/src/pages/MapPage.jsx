@@ -32,6 +32,30 @@ function formatSourceLabel(sourceType) {
   return sourceType === 'community' ? 'Community sensor' : 'Official station';
 }
 
+function formatDateTime(value) {
+  if (!value || value === 'No data') return 'No data';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function getPm25Status(pm25) {
+  if (pm25 <= 12) return 'Good';
+  if (pm25 <= 35.4) return 'Moderate';
+  if (pm25 <= 55.4) return 'Unhealthy for sensitive groups';
+  if (pm25 <= 150.4) return 'Unhealthy';
+  return 'Very unhealthy';
+}
+
 function isRecentReading(measuredAt) {
   if (!measuredAt) return false;
 
@@ -182,7 +206,9 @@ function ZoomAwareStationCircles({ readings, setSelectedStation, mostPolluted })
                 <br />
                 PM2.5: {item.pm25Value} µg/m³
                 <br />
-                Measured at: {item.measuredAt}
+                Air quality: {getPm25Status(item.pm25Value)}
+                <br />
+                Measured at: {formatDateTime(item.measuredAt)}
                 <br />
                 Source: {formatSourceLabel(item.sourceType)}
                 {isOutdated && (
@@ -221,7 +247,7 @@ function TopBar({ stationCount, averagePm25, mostPolluted, latestTimestamp }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={{ fontSize: '32px', fontWeight: 700, color: '#2563eb' }}>
+        <div style={{ fontSize: '28px', fontWeight: 600, color: '#2563eb' }}>
           AirScope
         </div>
       </div>
@@ -239,10 +265,10 @@ function TopBar({ stationCount, averagePm25, mostPolluted, latestTimestamp }) {
         <div><strong>Stations:</strong> {stationCount}</div>
         <div><strong>Average PM2.5:</strong> {averagePm25} µg/m³</div>
         <div>
-          <strong>Highest:</strong>{' '}
+          <strong>Highest PM2.5:</strong>{' '}
           {mostPolluted ? `${mostPolluted.locationName} (${mostPolluted.pm25Value})` : 'No data'}
         </div>
-        <div><strong>Latest:</strong> {latestTimestamp}</div>
+        <div><strong>Latest:</strong> {formatDateTime(latestTimestamp)}</div>
       </div>
     </div>
   );
@@ -260,7 +286,7 @@ function FilterPanel({
     <div
       style={{
         position: 'absolute',
-        top: '105px',
+        top: '110px',
         right: '18px',
         zIndex: 2000,
         width: '340px',
@@ -350,6 +376,15 @@ function FilterPanel({
             checked={showNoRecentUpdates}
             onChange={() => setShowNoRecentUpdates((prev) => !prev)}
           />
+          <span
+            style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              background: '#9ca3af',
+              display: 'inline-block',
+            }}
+          />
           Show locations with no recent updates
         </label>
       </div>
@@ -368,7 +403,7 @@ function DetailsPanel({ selectedStation, setSelectedStation, mostPolluted }) {
     <div
       style={{
         position: 'absolute',
-        top: '420px',
+        top: '380px',
         right: '18px',
         zIndex: 2000,
         width: '340px',
@@ -409,7 +444,8 @@ function DetailsPanel({ selectedStation, setSelectedStation, mostPolluted }) {
       <div style={{ padding: '20px 22px', fontSize: '16px', lineHeight: 1.6, color: '#1f2937' }}>
         <div><strong>Location:</strong> {selectedStation.locationName}</div>
         <div><strong>PM2.5:</strong> {selectedStation.pm25Value} µg/m³</div>
-        <div><strong>Measured at:</strong> {selectedStation.measuredAt}</div>
+        <div><strong>Air quality:</strong> {getPm25Status(selectedStation.pm25Value)}</div>
+        <div><strong>Measured at:</strong> {formatDateTime(selectedStation.measuredAt)}</div>
         <div><strong>Source:</strong> {formatSourceLabel(selectedStation.sourceType)}</div>
         <div><strong>Latitude:</strong> {selectedStation.latitude}</div>
         <div><strong>Longitude:</strong> {selectedStation.longitude}</div>
