@@ -11,20 +11,23 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.heat';
 
-function normalizePm25(pm25, maxPm25) {
-  if (!pm25 || pm25 <= 0) return 0.08;
+function normalizePm25(pm25) {
+  if (!pm25 || pm25 <= 0) return 0.05;
 
-  const normalized = pm25 / Math.max(maxPm25, 35);
-  return Math.min(Math.max(normalized, 0.08), 1);
+  if (pm25 <= 12) return 0.15;
+  if (pm25 <= 35.4) return 0.35;
+  if (pm25 <= 55.4) return 0.55;
+  if (pm25 <= 150.4) return 0.75;
+  return 1;
 }
 
 function getHeatGradient() {
   return {
     0.15: '#22c55e',
-    0.35: '#84cc16',
+    0.35: '#a3e635',
     0.55: '#facc15',
-    0.75: '#f97316',
-    1.0: '#dc2626',
+    0.75: '#fb923c',
+    1.0: '#ef4444',
   };
 }
 
@@ -54,6 +57,14 @@ function getPm25Status(pm25) {
   if (pm25 <= 55.4) return 'Unhealthy for sensitive groups';
   if (pm25 <= 150.4) return 'Unhealthy';
   return 'Very unhealthy';
+}
+
+function getPm25Color(pm25) {
+  if (pm25 <= 12) return '#22c55e';
+  if (pm25 <= 35.4) return '#a3e635';
+  if (pm25 <= 55.4) return '#facc15';
+  if (pm25 <= 150.4) return '#fb923c';
+  return '#ef4444';
 }
 
 function isRecentReading(measuredAt) {
@@ -117,24 +128,23 @@ function HeatmapLayer({ readings }) {
 
     const updateHeatmap = () => {
       const zoom = map.getZoom();
-      const maxPm25 = Math.max(...readings.map((r) => r.pm25Value || 0), 35);
 
-      let radius = 16;
-      let blur = 12;
+      let radius = 22;
+      let blur = 18;
 
       if (zoom >= 13) {
-        radius = 20;
-        blur = 14;
+        radius = 28;
+        blur = 20;
       }
 
       if (zoom >= 14) {
-        radius = 24;
-        blur = 16;
+        radius = 34;
+        blur = 24;
       }
 
       if (zoom >= 15) {
-        radius = 28;
-        blur = 18;
+        radius = 40;
+        blur = 28;
       }
 
       const heatData = readings
@@ -142,7 +152,7 @@ function HeatmapLayer({ readings }) {
         .map((item) => [
           item.latitude,
           item.longitude,
-          normalizePm25(item.pm25Value, maxPm25),
+          normalizePm25(item.pm25Value),
         ]);
 
       if (heatLayer) {
@@ -153,7 +163,7 @@ function HeatmapLayer({ readings }) {
         radius,
         blur,
         maxZoom: 17,
-        minOpacity: 0.45,
+        minOpacity: 0.4,
         gradient: getHeatGradient(),
       }).addTo(map);
     };
@@ -392,6 +402,63 @@ function FilterPanel({
   );
 }
 
+function LegendBox() {
+  const legendItems = [
+    { color: '#22c55e', range: '0 – 12', label: 'Good' },
+    { color: '#a3e635', range: '12.1 – 35.4', label: 'Moderate' },
+    { color: '#facc15', range: '35.5 – 55.4', label: 'Unhealthy for sensitive groups' },
+    { color: '#fb923c', range: '55.5 – 150.4', label: 'Unhealthy' },
+    { color: '#ef4444', range: '150.5+', label: 'Very unhealthy' },
+  ];
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: '18px',
+        bottom: '38px',
+        zIndex: 2000,
+        width: '250px',
+        background: 'rgba(255,255,255,0.97)',
+        borderRadius: '18px',
+        padding: '18px',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.14)',
+        color: '#1f2937',
+      }}
+    >
+      <div style={{ fontSize: '16px', fontWeight: 650, marginBottom: '14px' }}>
+        PM2.5 (µg/m³)
+      </div>
+
+      {legendItems.map((item) => (
+        <div
+          key={item.range}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '18px 82px 1fr',
+            alignItems: 'center',
+            columnGap: '10px',
+            marginBottom: '10px',
+            fontSize: '13px',
+          }}
+        >
+          <span
+            style={{
+              width: '16px',
+              height: '16px',
+              borderRadius: '50%',
+              background: item.color,
+              display: 'inline-block',
+            }}
+          />
+          <span>{item.range}</span>
+          <span>{item.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DetailsPanel({ selectedStation, setSelectedStation, mostPolluted }) {
   if (!selectedStation) return null;
 
@@ -403,7 +470,7 @@ function DetailsPanel({ selectedStation, setSelectedStation, mostPolluted }) {
     <div
       style={{
         position: 'absolute',
-        top: '380px',
+        top: '110px',
         right: '18px',
         zIndex: 2000,
         width: '340px',
@@ -441,23 +508,63 @@ function DetailsPanel({ selectedStation, setSelectedStation, mostPolluted }) {
         </button>
       </div>
 
-      <div style={{ padding: '20px 22px', fontSize: '16px', lineHeight: 1.6, color: '#1f2937' }}>
-        <div><strong>Location:</strong> {selectedStation.locationName}</div>
-        <div><strong>PM2.5:</strong> {selectedStation.pm25Value} µg/m³</div>
-        <div><strong>Air quality:</strong> {getPm25Status(selectedStation.pm25Value)}</div>
-        <div><strong>Measured at:</strong> {formatDateTime(selectedStation.measuredAt)}</div>
-        <div><strong>Source:</strong> {formatSourceLabel(selectedStation.sourceType)}</div>
-        <div><strong>Latitude:</strong> {selectedStation.latitude}</div>
-        <div><strong>Longitude:</strong> {selectedStation.longitude}</div>
+      <div
+        style={{
+          padding: '20px 22px',
+          fontSize: '16px',
+          lineHeight: 1.6,
+          color: '#1f2937',
+          display: 'grid',
+          gridTemplateColumns: '120px 1fr',
+          rowGap: '8px',
+          columnGap: '10px',
+        }}
+      >
+        <strong>Location:</strong>
+        <span>{selectedStation.locationName}</span>
+
+        <strong>PM2.5:</strong>
+        <span>{selectedStation.pm25Value} µg/m³</span>
+
+        <strong>Air quality:</strong>
+        <span style={{ color: getPm25Color(selectedStation.pm25Value), fontWeight: 700 }}>
+          {getPm25Status(selectedStation.pm25Value)}
+        </span>
+
+        <strong>Measured at:</strong>
+        <span>{formatDateTime(selectedStation.measuredAt)}</span>
+
+        <strong>Source:</strong>
+        <span>{formatSourceLabel(selectedStation.sourceType)}</span>
+
+        <strong>Latitude:</strong>
+        <span>{selectedStation.latitude}</span>
+
+        <strong>Longitude:</strong>
+        <span>{selectedStation.longitude}</span>
 
         {isOutdated && (
-          <div style={{ marginTop: '10px', color: '#6b7280', fontWeight: 800 }}>
+          <div
+            style={{
+              gridColumn: '1 / -1',
+              marginTop: '10px',
+              color: '#6b7280',
+              fontWeight: 800,
+            }}
+          >
             No recent update for this location
           </div>
         )}
 
         {isMostPolluted && (
-          <div style={{ marginTop: '10px', color: '#b91c1c', fontWeight: 800 }}>
+          <div
+            style={{
+              gridColumn: '1 / -1',
+              marginTop: '10px',
+              color: '#b91c1c',
+              fontWeight: 750,
+            }}
+          >
             Most polluted area right now
           </div>
         )}
@@ -573,20 +680,24 @@ function MapPage() {
         latestTimestamp={latestTimestamp}
       />
 
-      <FilterPanel
-        showOfficial={showOfficial}
-        setShowOfficial={setShowOfficial}
-        showCommunity={showCommunity}
-        setShowCommunity={setShowCommunity}
-        showNoRecentUpdates={showNoRecentUpdates}
-        setShowNoRecentUpdates={setShowNoRecentUpdates}
-      />
+      {!selectedStation && (
+        <FilterPanel
+          showOfficial={showOfficial}
+          setShowOfficial={setShowOfficial}
+          showCommunity={showCommunity}
+          setShowCommunity={setShowCommunity}
+          showNoRecentUpdates={showNoRecentUpdates}
+          setShowNoRecentUpdates={setShowNoRecentUpdates}
+        />
+      )}
 
       <DetailsPanel
         selectedStation={selectedStation}
         setSelectedStation={setSelectedStation}
         mostPolluted={mostPolluted}
       />
+
+      <LegendBox />
 
       {loading && (
         <div
