@@ -3,8 +3,6 @@ package com.airscope.backend.controller;
 import com.airscope.backend.model.AirQualityReading;
 import com.airscope.backend.repository.AirQualityReadingRepository;
 import com.airscope.backend.service.OpenAQService;
-
-import org.springframework.cglib.core.Local;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -24,12 +22,22 @@ public class AirQualityController {
 
     @GetMapping
     public List<AirQualityReading> getAll() {
-        return repository.findAll(); // raw data (valid + invalid)
+        return repository.findAll();
     }
 
     @GetMapping("/valid")
     public List<AirQualityReading> getValid() {
-        return repository.findByValidTrue(); // only clean data
+        return repository.findByValidTrue();
+    }
+
+    @GetMapping("/official")
+    public List<AirQualityReading> getOfficialReadings() {
+        return repository.findBySourceTypeOrderByMeasuredAtDesc("official");
+    }
+
+    @GetMapping("/community")
+    public List<AirQualityReading> getCommunityReadings() {
+        return repository.findBySourceTypeOrderByMeasuredAtDesc("community");
     }
 
     @PostMapping("/test")
@@ -44,7 +52,10 @@ public class AirQualityController {
                 LocalDateTime.now(),
                 LocalDateTime.now(),
                 true,
-                "OK"
+                "OK",
+                "official",
+                "Test",
+                false
         );
 
         return repository.save(reading);

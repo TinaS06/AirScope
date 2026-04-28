@@ -1,7 +1,5 @@
 package com.airscope.backend.service;
 
-import com.airscope.backend.client.MLClient;
-import com.airscope.backend.dto.MLAnalysisResponse;
 import com.airscope.backend.model.AirQualityReading;
 import com.airscope.backend.repository.AirQualityReadingRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +16,6 @@ import java.util.*;
 public class OpenAQService {
 
     private final AirQualityReadingRepository repository;
-    private final MLClient mlClient;
 
     @Value("${openaq.api.key}")
     private String apiKey;
@@ -34,9 +31,8 @@ public class OpenAQService {
             "Lisice"
     );
 
-    public OpenAQService(AirQualityReadingRepository repository, MLClient mlClient) {
+    public OpenAQService(AirQualityReadingRepository repository) {
         this.repository = repository;
-        this.mlClient = mlClient;
     }
 
     public List<AirQualityReading> fetchAndSaveLatestPm25() {
@@ -101,12 +97,14 @@ public class OpenAQService {
 
             Integer pm25SensorId = null;
             List<Map<String, Object>> sensors = getListOfMaps(location.get("sensors"));
+
             if (sensors != null) {
                 for (Map<String, Object> sensor : sensors) {
                     Map<String, Object> parameter = getMap(sensor.get("parameter"));
                     if (parameter == null) continue;
 
                     String paramName = valueAsString(parameter.get("name"));
+
                     if ("pm25".equalsIgnoreCase(paramName)) {
                         pm25SensorId = valueAsInteger(sensor.get("id"));
                         break;
@@ -147,8 +145,10 @@ public class OpenAQService {
 
                     LocalDateTime measuredAt = LocalDateTime.now();
                     Object datetimeObj = reading.get("datetime");
+
                     if (datetimeObj instanceof Map<?, ?> dtMap) {
                         Object utc = dtMap.get("utc");
+
                         if (utc != null) {
                             try {
                                 measuredAt = OffsetDateTime.parse(String.valueOf(utc)).toLocalDateTime();
@@ -182,7 +182,10 @@ public class OpenAQService {
                             measuredAt,
                             LocalDateTime.now(),
                             valid,
-                            validationNote
+                            validationNote,
+                            "official",
+                            "OpenAQ",
+                            false
                     );
 
                     readings.add(airQualityReading);
@@ -195,46 +198,37 @@ public class OpenAQService {
             }
         }
 
-        if (!readings.isEmpty()) {
-            List<Double> pm25Values = readings.stream()
-                    .map(AirQualityReading::getPm25Value)
-                    .toList();
-
-            List<MLAnalysisResponse> mlResults = mlClient.analyzeReadings(pm25Values);
-
-            for (int i = 0; i < readings.size(); i++) {
-                AirQualityReading reading = readings.get(i);
-                MLAnalysisResponse mlResult = mlResults.get(i);
-
-                if (!mlResult.isValid()) {
-                    reading.setValid(false);
-
-                    if ("OK".equals(reading.getValidationNote())) {
-                        reading.setValidationNote(mlResult.getStatus());
-                    } else {
-                        reading.setValidationNote(reading.getValidationNote() + ", " + mlResult.getStatus());
-                    }
-                }
-            }
-        }
-
         List<AirQualityReading> savedReadings = repository.saveAll(readings);
 
-        System.out.println(">>> Total readings saved: " + savedReadings.size());
+        System.out.println(">>> Total OpenAQ readings saved: " + savedReadings.size());
         return savedReadings;
     }
 
     private String matchAllowedLocation(String apiLocationName) {
-        if (apiLocationName == null) return null;
+    if (apiLocationName == null) return null;
 
-        String lower = apiLocationName.toLowerCase();
-        for (String allowed : ALLOWED_LOCATIONS) {
-            if (lower.contains(allowed.toLowerCase())) {
-                return allowed;
-            }
+    String normalizedApiName = normalizeLocationName(apiLocationName);
+
+    for (String allowed : ALLOWED_LOCATIONS) {
+        String normalizedAllowed = normalizeLocationName(allowed);
+
+        if (normalizedApiName.contains(normalizedAllowed)) {
+            return allowed;
         }
-        return null;
     }
+
+    return null;
+}
+
+private String normalizeLocationName(String name) {
+    return name
+            .toLowerCase()
+            .replace("š", "s")
+            .replace("č", "c")
+            .replace("ž", "z")
+            .replace("ć", "c")
+            .replace("đ", "d");
+}
 
     private String valueAsString(Object value) {
         return value == null ? null : String.valueOf(value);
@@ -243,6 +237,7 @@ public class OpenAQService {
     private Double valueAsDouble(Object value) {
         if (value == null) return null;
         if (value instanceof Number number) return number.doubleValue();
+
         try {
             return Double.parseDouble(String.valueOf(value));
         } catch (NumberFormatException e) {
@@ -253,6 +248,7 @@ public class OpenAQService {
     private Integer valueAsInteger(Object value) {
         if (value == null) return null;
         if (value instanceof Number number) return number.intValue();
+
         try {
             return Integer.parseInt(String.valueOf(value));
         } catch (NumberFormatException e) {
@@ -270,11 +266,16 @@ public class OpenAQService {
     private List<Map<String, Object>> getListOfMaps(Object value) {
         if (value instanceof List<?> list) {
             List<Map<String, Object>> result = new ArrayList<>();
+
             for (Object item : list) {
-                if (item instanceof Map<?, ?> map) result.add((Map<String, Object>) map);
+                if (item instanceof Map<?, ?> map) {
+                    result.add((Map<String, Object>) map);
+                }
             }
+
             return result;
         }
+
         return null;
     }
 }
