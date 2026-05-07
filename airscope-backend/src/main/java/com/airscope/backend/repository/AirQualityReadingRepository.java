@@ -4,6 +4,7 @@ import com.airscope.backend.model.AirQualityReading;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface AirQualityReadingRepository extends JpaRepository<AirQualityReading, Long> {
 
@@ -16,4 +17,6 @@ public interface AirQualityReadingRepository extends JpaRepository<AirQualityRea
     List<AirQualityReading> findBySourceTypeAndValidTrueOrderByMeasuredAtDesc(String sourceType);
 
     List<AirQualityReading> findBySourceTypeAndCityOrderByMeasuredAtDesc(String sourceType, String city);
+
+    Optional<AirQualityReading> findTopByValidTrueOrderByMeasuredAtDesc();
 }
