@@ -630,10 +630,22 @@ function LegendBox() {
   );
 }
 
-function InsightBox({ mostPolluted, validCount, totalCount, anomalyCount, averagePm25 }) {
+function InsightBox({
+  prediction,
+  mostPolluted,
+  validCount,
+  totalCount,
+  anomalyCount,
+  averagePm25,
+}) {
   const reliability = totalCount === 0 ? 0 : Math.round((validCount / totalCount) * 100);
+
   const status = getPm25Status(Number(averagePm25));
-  const trendText = Number(averagePm25) <= 12 ? 'Air quality is currently good' : 'Monitor sensitive areas';
+
+  const trendText =
+    Number(averagePm25) <= 12
+      ? 'Air quality is currently good'
+      : 'Monitor sensitive areas';
 
   return (
     <div
@@ -652,60 +664,130 @@ function InsightBox({ mostPolluted, validCount, totalCount, anomalyCount, averag
         color: '#111827',
       }}
     >
-      <div style={{ fontWeight: 800, fontSize: '15px', marginBottom: '10px' }}>Live insight</div>
+      <div style={{ fontWeight: 800, fontSize: '15px', marginBottom: '10px' }}>
+        Live insight
+      </div>
 
       <div style={{ fontSize: '13px', lineHeight: 1.6 }}>
-        <div><strong>Worst area:</strong> {mostPolluted ? mostPolluted.locationName : 'No data'}</div>
+        <div>
+          <strong>Worst area:</strong>{' '}
+          {mostPolluted ? mostPolluted.locationName : 'No data'}
+        </div>
+
         <div>
           <strong>Current level:</strong>{' '}
-          <span style={{ color: getPm25Color(Number(averagePm25)), fontWeight: 800 }}>
+          <span
+            style={{
+              color: getPm25Color(Number(averagePm25)),
+              fontWeight: 800,
+            }}
+          >
             {status}
           </span>
         </div>
-        <div><strong>Reliability:</strong> {reliability}% valid recent data</div>
-        <div><strong>Outliers:</strong> {anomalyCount} detected</div>
-        <div style={{ marginTop: '8px', color: '#475569' }}>{trendText}</div>
+
+        <div>
+          <strong>Reliability:</strong> {reliability}% valid recent data
+        </div>
+
+        <div>
+          <strong>Outliers:</strong> {anomalyCount} detected
+        </div>
+
+        {prediction && (
+          <div>
+            <strong>Next hour forecast:</strong>{' '}
+            <span
+              style={{
+                color: getPm25Color(
+                  prediction.predicted_pm25_next_hour
+                ),
+                fontWeight: 800,
+              }}
+            >
+              {prediction.predicted_pm25_next_hour.toFixed(1)} µg/m³
+            </span>
+          </div>
+        )}
+
+        <div
+          style={{
+            marginTop: '8px',
+            color: '#475569',
+          }}
+        >
+          {trendText}
+        </div>
       </div>
     </div>
   );
 }
 
 function MiniPm25Chart({ readings, selectedStation }) {
-  const stationReadings = readings
-    .filter((item) => item.locationName === selectedStation.locationName)
-    .filter((item) => Number.isFinite(Number(item.pm25Value)))
-    .sort((a, b) => new Date(a.measuredAt) - new Date(b.measuredAt))
-    .slice(-8);
+  if (!selectedStation) return null;
 
-  if (stationReadings.length < 2) {
-    return (
-      <div style={{ gridColumn: '1 / -1', fontSize: '13px', color: '#64748b' }}>
-        Not enough readings yet for a station trend chart.
-      </div>
-    );
-  }
+  const stationReadings = readings
+    .filter(
+      (reading) =>
+        reading.locationName === selectedStation.locationName &&
+        reading.valid
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.measuredAt) - new Date(b.measuredAt)
+    )
+    .slice(-12);
+
+  if (stationReadings.length < 2) return null;
 
   const width = 280;
   const height = 94;
   const padding = 12;
-  const values = stationReadings.map((item) => Number(item.pm25Value));
+
+  const values = stationReadings.map((item) =>
+    Number(item.pm25Value)
+  );
+
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
 
   const points = stationReadings.map((item, index) => {
-    const x = padding + (index / (stationReadings.length - 1)) * (width - padding * 2);
-    const y = height - padding - ((Number(item.pm25Value) - min) / range) * (height - padding * 2);
-    return { x, y, value: item.pm25Value };
+    const x =
+      padding +
+      (index / (stationReadings.length - 1)) *
+        (width - padding * 2);
+
+    const y =
+      height -
+      padding -
+      ((Number(item.pm25Value) - min) / range) *
+        (height - padding * 2);
+
+    return {
+      x,
+      y,
+      value: item.pm25Value,
+    };
   });
 
   const path = points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
+    .map(
+      (point, index) =>
+        `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
+    )
     .join(' ');
 
   return (
     <div style={{ gridColumn: '1 / -1', marginTop: '12px' }}>
-      <div style={{ fontWeight: 800, marginBottom: '8px' }}>Recent PM2.5 trend</div>
+      <div
+        style={{
+          fontWeight: 800,
+          marginBottom: '8px',
+        }}
+      >
+        Recent PM2.5 trend
+      </div>
 
       <svg
         width="100%"
@@ -716,8 +798,22 @@ function MiniPm25Chart({ readings, selectedStation }) {
           border: '1px solid #e2e8f0',
         }}
       >
-        <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#cbd5e1" />
-        <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#cbd5e1" />
+        <line
+          x1={padding}
+          y1={height - padding}
+          x2={width - padding}
+          y2={height - padding}
+          stroke="#cbd5e1"
+        />
+
+        <line
+          x1={padding}
+          y1={padding}
+          x2={padding}
+          y2={height - padding}
+          stroke="#cbd5e1"
+        />
+
         <path
           d={path}
           fill="none"
@@ -740,7 +836,15 @@ function MiniPm25Chart({ readings, selectedStation }) {
         ))}
       </svg>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '12px',
+          color: '#64748b',
+          marginTop: '4px',
+        }}
+      >
         <span>Older</span>
         <span>Latest</span>
       </div>
@@ -865,6 +969,8 @@ function MapPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedStation, setSelectedStation] = useState(null);
+  const [prediction, setPrediction] = useState(null);
+  
 
   const [showOfficial, setShowOfficial] = useState(true);
   const [showCommunity, setShowCommunity] = useState(true);
@@ -886,20 +992,26 @@ function MapPage() {
         return response.json();
       })
       .then((data) => {
-        const normalizedData = data.map((item, index) => ({
-          ...item,
-          id: item.id ?? index + 1,
-          sourceType: item.sourceType || 'official',
-        }));
+  const normalizedData = data.map((item, index) => ({
+    ...item,
+    id: item.id ?? index + 1,
+    sourceType: item.sourceType || 'official',
+  }));
 
-        setReadings(normalizedData);
-        setError('');
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(String(err));
-        setLoading(false);
-      });
+  setReadings(normalizedData);
+
+  fetch('http://localhost:8080/api/ml/live-prediction')
+    .then((response) => response.json())
+    .then((predictionData) => {
+      setPrediction(predictionData);
+    })
+    .catch((err) => {
+      console.error('Prediction fetch failed:', err);
+    });
+
+  setError('');
+  setLoading(false);
+})
   }, []);
 
  useEffect(() => {
@@ -1011,12 +1123,13 @@ function MapPage() {
       />
 
       <InsightBox
-        mostPolluted={mostPolluted}
-        validCount={validRecentCount}
-        totalCount={latestReadingsPerStation.length}
-        anomalyCount={anomalyCount}
-        averagePm25={averagePm25}
-      />
+  prediction={prediction}
+  mostPolluted={mostPolluted}
+  validCount={validRecentCount}
+  totalCount={latestReadingsPerStation.length}
+  anomalyCount={anomalyCount}
+  averagePm25={averagePm25}
+/>
 
       <AddSensorButton
         setAddSensorMode={setAddSensorMode}
