@@ -136,13 +136,11 @@ function getMarkerStyle(item, isMostPolluted, zoom, isAnomaly) {
   else if (zoom <= 11) radius *= 0.82;
   else if (zoom >= 14) radius *= 1.15;
 
-  const fillColor = isOutdated
-    ? '#475569'
-    : isAnomaly
-      ? '#fee2e2'
-      : isCommunity
-        ? '#60a5fa'
-        : '#1d4ed8';
+const fillColor = isOutdated
+  ? '#475569'
+  : isAnomaly
+    ? '#fee2e2'
+    : pm25Color;
 
   const borderColor = isAnomaly
     ? '#7f1d1d'
@@ -353,15 +351,33 @@ function TopBar({ stationCount, averagePm25, mostPolluted, latestTimestamp }) {
       }}
     >
       <div
-        style={{
-          fontSize: '32px',
-          fontWeight: 760,
-          letterSpacing: '-1px',
-          color: '#1e3a8a',
-        }}
-      >
-        AirScope
-      </div>
+  style={{
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  }}
+>
+  <img
+    src="/favicon.png"
+    alt="AirScope logo"
+    style={{
+      width: '52px',
+      height: '52px',
+      objectFit: 'contain',
+    }}
+  />
+
+  <div
+    style={{
+      fontSize: '32px',
+      fontWeight: 760,
+      letterSpacing: '-1px',
+      color: '#1e3a8a',
+    }}
+  >
+    AirScope
+  </div>
+</div>
 
       <div
         style={{
