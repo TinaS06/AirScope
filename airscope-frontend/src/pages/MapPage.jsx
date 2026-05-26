@@ -150,11 +150,11 @@ const fillColor = isOutdated
 
   return {
     radius,
-    glowRadius: radius + (isCommunity ? 6 : 9),
+    glowRadius: radius + (isCommunity ? 7 : 14),
     glowOptions: {
       color: pm25Color,
       fillColor: pm25Color,
-      fillOpacity: isOutdated ? 0.08 : Math.min(0.32, 0.12 + pm25 / 180),
+      fillOpacity: isOutdated ? 0.08 : Math.min(0.24, 0.08 + pm25 / 220),
       opacity: isOutdated ? 0.1 : 0.28,
       weight: 0,
       interactive: false,
@@ -162,7 +162,7 @@ const fillColor = isOutdated
     pathOptions: {
       color: borderColor,
       fillColor,
-      fillOpacity: isOutdated ? 0.48 : 0.82,
+      fillOpacity: isOutdated ? 0.48 : 0.80,
       opacity: isOutdated ? 0.7 : 1,
       weight: isMostPolluted ? 4 : 2.5,
       dashArray: isAnomaly ? '4 3' : isCommunity ? '4 4' : null,
