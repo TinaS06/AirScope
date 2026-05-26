@@ -9,8 +9,6 @@ app = FastAPI()
 
 
 
-# DATA MODELS
-
 class Reading(BaseModel):
     pm25: float
 
@@ -23,12 +21,9 @@ class PredictionRequest(BaseModel):
     pm25value: float
 
 
-# ANOMALY DETECTION MODEL
 model = IsolationForest(contamination=0.2)
 
 
-
-# FORECASTING MODEL
 forecast_model = joblib.load("models/forecast_model.pkl")
 
 
