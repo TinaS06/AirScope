@@ -165,7 +165,7 @@ public class OpenAQService {
                         validationNote = "NEGATIVE_VALUE";
                     }
 
-                    if (measuredAt.isBefore(LocalDateTime.now().minusHours(24))) {
+                    if (measuredAt.isBefore(LocalDateTime.now().minusHours(48))) {
                         valid = false;
                         validationNote = validationNote.equals("OK")
                                 ? "STALE_DATA"

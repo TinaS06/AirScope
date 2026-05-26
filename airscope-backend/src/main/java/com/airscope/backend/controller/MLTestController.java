@@ -26,10 +26,7 @@ public class MLTestController {
     }
 
 
-
-    // -----------------------------
     // TEST ANOMALY DETECTION
-    // -----------------------------
 
     @GetMapping("/api/ml/test")
     public List<MLAnalysisResponse> testMLConnection() {
@@ -40,10 +37,7 @@ public class MLTestController {
     }
 
 
-
-    // -----------------------------
     // LIVE DB FORECAST PREDICTION
-    // -----------------------------
 
     @GetMapping("/api/ml/live-prediction")
     public MLPredictionResponse getLivePrediction() {

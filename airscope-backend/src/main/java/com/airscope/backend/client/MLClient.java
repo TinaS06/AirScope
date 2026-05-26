@@ -26,10 +26,7 @@ public class MLClient {
 
 
 
-    // -----------------------------
     // ANOMALY DETECTION
-    // -----------------------------
-
     public List<MLAnalysisResponse> analyzeReadings(List<Double> pm25Values) {
 
         List<MLReadingRequest> readings = pm25Values.stream()
@@ -51,10 +48,7 @@ public class MLClient {
 
 
 
-    // -----------------------------
     // PM2.5 FORECASTING
-    // -----------------------------
-
     public MLPredictionResponse predictPM25(double pm25value) {
 
         MLPredictionRequest request =
