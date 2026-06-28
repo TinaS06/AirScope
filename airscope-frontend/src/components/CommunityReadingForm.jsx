@@ -60,8 +60,8 @@ function CommunityReadingForm({
     <div
       style={{
         position: 'absolute',
-        top: '160px',
-        right: '32px',
+        top: '110px',
+        right: '18px',
         zIndex: 2500,
         width: '320px',
         background: 'rgba(255,255,255,0.96)',
@@ -72,7 +72,7 @@ function CommunityReadingForm({
       }}
     >
       <div style={{ fontWeight: 850, fontSize: '17px', marginBottom: '12px' }}>
-        Add community sensor
+        Add Community Sensor
       </div>
 
       <div style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>
@@ -83,7 +83,7 @@ function CommunityReadingForm({
         <input
           value={locationName}
           onChange={(e) => setLocationName(e.target.value)}
-          placeholder="Input sensor name"
+          placeholder="Sensor name"
           required
           style={inputStyle}
         />
@@ -91,7 +91,7 @@ function CommunityReadingForm({
         <input
           value={submittedBy}
           onChange={(e) => setSubmittedBy(e.target.value)}
-          placeholder="Input user name"
+          placeholder="Submitted by"
           required
           style={inputStyle}
         />
@@ -120,7 +120,7 @@ function CommunityReadingForm({
             cursor: 'pointer',
           }}
         >
-          Submit reading
+          Submit Reading
         </button>
       </form>
 

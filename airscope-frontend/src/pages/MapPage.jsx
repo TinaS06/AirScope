@@ -389,7 +389,7 @@ function TopBar({ stationCount, averagePm25, mostPolluted, latestTimestamp }) {
           justifyContent: 'flex-end',
         }}
       >
-        <div><strong>Stations:</strong> {stationCount}</div>
+        <div><strong>Visible Stations:</strong> {stationCount}</div>
         <div><strong>Average PM2.5:</strong> {averagePm25} µg/m³</div>
         <div>
           <strong>Highest PM2.5:</strong>{' '}
@@ -506,7 +506,7 @@ function FilterPanel({
         top: '110px',
         right: '18px',
         zIndex: 2000,
-        width: '350px',
+        width: '330px',
         background: 'rgba(255,255,255,0.94)',
         backdropFilter: 'blur(12px)',
         borderRadius: '22px',
@@ -524,11 +524,11 @@ function FilterPanel({
           fontWeight: 650,
         }}
       >
-        Filters
+        Map Filters
       </div>
 
-      <div style={{ padding: '22px', fontSize: '15px', color: '#1f2937' }}>
-        <div style={{ fontWeight: 750, marginBottom: '18px' }}>Choose location type</div>
+      <div style={{ padding: '18px', fontSize: '15px', color: '#1f2937' }}>
+        <div style={{ fontWeight: 750, marginBottom: '16px' }}>Display Options</div>
 
         <ToggleRow
           checked={showOfficial}
@@ -548,7 +548,7 @@ function FilterPanel({
           checked={showNoRecentUpdates}
           onChange={() => setShowNoRecentUpdates((prev) => !prev)}
           dotStyle={noRecentDotStyle}
-          label="Show locations with no recent updates"
+          label="Show Outdated Stations"
           offColor="#64748b"
         />
 
@@ -564,7 +564,7 @@ function FilterPanel({
           onClick={resetFilters}
           style={{
             width: '100%',
-            marginTop: '4px',
+            marginTop: '10px',
             border: '1px solid #cbd5e1',
             background: '#f8fafc',
             color: '#1e3a8a',
@@ -589,17 +589,17 @@ function LegendBox() {
         left: '18px',
         bottom: '38px',
         zIndex: 2000,
-        width: '270px',
+        width: '245px',
         background: 'rgba(255,255,255,0.94)',
         backdropFilter: 'blur(12px)',
         borderRadius: '18px',
-        padding: '18px',
+        padding: '14px',
         boxShadow: '0 12px 26px rgba(15,23,42,0.16)',
         border: '1px solid rgba(226,232,240,0.9)',
         color: '#111827',
       }}
     >
-      <div style={{ fontSize: '16px', fontWeight: 750, marginBottom: '14px' }}>
+      <div style={{ fontSize: '15px', fontWeight: 800, marginBottom: '10px' }}>
         PM2.5 (µg/m³)
       </div>
 
@@ -608,11 +608,11 @@ function LegendBox() {
           key={item.range}
           style={{
             display: 'grid',
-            gridTemplateColumns: '18px 82px 1fr',
+            gridTemplateColumns: '16px 72px 1fr',
             alignItems: 'center',
             columnGap: '10px',
-            marginBottom: '10px',
-            fontSize: '13px',
+            marginBottom: '6px',
+            fontSize: '12px',
             fontWeight: 560,
           }}
         >
@@ -640,7 +640,7 @@ function LegendBox() {
           color: '#374151',
         }}
       >
-        Dashed border = community sensor or detected outlier
+        Dashed border = Community / Outlier
       </div>
     </div>
   );
@@ -670,28 +670,28 @@ function InsightBox({
         left: '18px',
         top: '100px',
         zIndex: 2000,
-        width: '300px',
+        width: '280px',
         background: 'rgba(255,255,255,0.94)',
         backdropFilter: 'blur(12px)',
         borderRadius: '18px',
-        padding: '16px 18px',
+        padding: '14px 16px',
         boxShadow: '0 12px 26px rgba(15,23,42,0.16)',
         border: '1px solid rgba(226,232,240,0.9)',
         color: '#111827',
       }}
     >
       <div style={{ fontWeight: 800, fontSize: '15px', marginBottom: '10px' }}>
-        Live insight
+        Analytics Summary
       </div>
 
       <div style={{ fontSize: '13px', lineHeight: 1.6 }}>
         <div>
-          <strong>Worst area:</strong>{' '}
+          <strong>Most Polluted Area:</strong>{' '}
           {mostPolluted ? mostPolluted.locationName : 'No data'}
         </div>
 
         <div>
-          <strong>Current level:</strong>{' '}
+          <strong>Air Quality:</strong>{' '}
           <span
             style={{
               color: getPm25Color(Number(averagePm25)),
@@ -703,26 +703,17 @@ function InsightBox({
         </div>
 
         <div>
-          <strong>Reliability:</strong> {reliability}% valid recent data
+          <strong>Data Reliability:</strong> {reliability}% 
         </div>
 
         <div>
-          <strong>Outliers:</strong> {anomalyCount} detected
+          <strong>Detected Outliers:</strong> {anomalyCount}
         </div>
 
         {prediction && (
           <div>
-            <strong>Next hour forecast:</strong>{' '}
-            <span
-              style={{
-                color: getPm25Color(
-                  prediction.predicted_pm25_next_hour
-                ),
-                fontWeight: 800,
-              }}
-            >
+            <strong>PM2.5 Prediction (+1h):</strong>{' '}
               {prediction.predicted_pm25_next_hour.toFixed(1)} µg/m³
-            </span>
           </div>
         )}
 
