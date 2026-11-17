@@ -5,7 +5,9 @@ AirScope combines a React frontend, a Spring Boot backend, a PostgreSQL database
 
 ## Base URLs
 Frontend: http://localhost:5173
+
 Backend API: http://localhost:8080
+
 Machine Learning Service: http://localhost:8001
 
 ## REST API Endpoints
